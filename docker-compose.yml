@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: lantraniutremen
+      POSTGRES_DB: Ecommerce
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  app:
+    build: .
+    depends_on:
+      - postgres
+    environment:
+      DATABASE_URL: "postgresql://postgres:lantraniutremen@postgres:5432/Ecommerce"
+      PORT: 5000
+      JWT_SECRET: lantraniutremen
+      ADMIN_EMAIL: admin@example.com
+      ADMIN_PASSWORD: hello123
+      AWS_ACCESS_KEY_ID: AKIAUVY7UQIC7RFZ4QN2
+      AWS_SECRET_ACCESS_KEY: 5iGG7O308tv6Nk+exNknNOu10JnZ2trRb+pxNw1H
+      AWS_REGION: ap-southeast-1
+      AWS_S3_BUCKET: ecomerce-buckett
+      AWS_SES_SENDER_EMAIL: lantrancute2006@gmail.com
+      GOOGLE_CLIENT_ID: 520013246136-mm5c0daaf0ifierqic6gb3b7quoos23a.apps.googleusercontent.com
+      GOOGLE_CLIENT_SECRET: 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
+      GOOGLE_REDIRECT_URI: http://localhost:5000/auth/google/callback
+    command: >
+      sh -c "
+        npx prisma db push &&
+        npm run seed &&
+        npm run permission &&
+        npm run build &&
+        npm run start:prod
+      "
+    ports:
+      - "5000:5000"
+    volumes:
+      - .:/usr/src/app
+
+volumes:
+  postgres_data:
