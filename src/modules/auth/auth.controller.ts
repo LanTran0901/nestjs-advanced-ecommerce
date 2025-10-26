@@ -12,8 +12,9 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { authService } from './auth.service';
-import { LoginDto, RegisterDto, SendOtpDto } from './dto/auth.dto';
+import { LoginDto, RegisterDto, SendOtpDto, RegisterResponseDto, LoginResponseDto, RefreshTokenResponseDto, LogoutResponseDto, SendOtpResponseDto, Setup2FAResponseDto, Verify2FAResponseDto, Disable2FAResponseDto } from './dto/auth.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { ZodResponse } from 'nestjs-zod';
 import { configMulter } from 'src/utils/upload';
 import { type JwtPayload } from 'src/types';
 import { RefreshTokenGuard } from './guard/jwt-auth.guard';
@@ -32,12 +33,13 @@ export class authController {
   @Post('register')
   @UseInterceptors(FileInterceptor('file', configMulter))
   @Public()
+  @ZodResponse({ type: RegisterResponseDto })
   async register(
     @Body() body: RegisterDto,
     @UploadedFile() file: Express.Multer.File,
   ) {
     let response = await this.authService.registerUser(body, file);
-    return { message: 'user created successfully', data: response };
+    return response;
   }
 
   @Post('login')
@@ -76,6 +78,7 @@ export class authController {
   }
 
   @Post('send-otp')
+  @ZodResponse({ type: SendOtpResponseDto })
   async sendOtp(@Body() body: SendOtpDto) {
     const { email } = body;
     await this.authService.sendOTPCode(email);
@@ -83,16 +86,19 @@ export class authController {
   }
 
   @Post('setup-2fa')
+  @ZodResponse({ type: Setup2FAResponseDto })
   async setup(@User() user: JwtPayload) {
     return this.authService.setup2FA(user.id);
   }
 
   @Post('verify-2fa')
+  @ZodResponse({ type: Verify2FAResponseDto })
   async confirm(@User() user: JwtPayload, @Body('code') code: string) {
     return this.authService.confirm2FA(user.id, code);
   }
 
   @Post('disable-2fa')
+  @ZodResponse({ type: Disable2FAResponseDto })
   async disable(@User() user: JwtPayload) {
     return this.authService.disable2FA(user.id);
   }

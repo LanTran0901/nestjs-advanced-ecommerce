@@ -15,3 +15,29 @@ const UpdateCategorySchema = z.object({
 });
 
 export class UpdateCategoryDto extends createZodDto(UpdateCategorySchema) {}
+
+// Response DTOs
+const CategoryResponseSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  logo: z.string().nullable(),
+  parentCategoryId: z.number().nullable(),
+  createdById: z.number().nullable(),
+  updatedById: z.number().nullable(),
+  deletedById: z.number().nullable(),
+  deletedAt: z.any().nullable(), // Accept any type to avoid transform issues
+  createdAt: z.any(),
+  updatedAt: z.any(),
+});
+
+export class CategoryResponseDto extends createZodDto(CategoryResponseSchema) {}
+
+const CategoryListResponseSchema = z.array(CategoryResponseSchema);
+
+export class CategoryListResponseDto extends createZodDto(CategoryListResponseSchema) {}
+
+const DeleteCategoryResponseSchema = z.object({
+  message: z.string(),
+});
+
+export class DeleteCategoryResponseDto extends createZodDto(DeleteCategoryResponseSchema) {}

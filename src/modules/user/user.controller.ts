@@ -9,14 +9,16 @@ import {
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { type JwtPayload} from 'src/types';
-import { ChangePasswordDto, UpdateUserDto } from './dto/user.dto.';
+import { ChangePasswordDto, UpdateUserDto, UserResponseDto, UpdateUserResponseDto, ChangePasswordResponseDto } from './dto/user.dto.';
 import { User } from 'src/common/decorator/user.decorator';
+import { ZodResponse } from 'nestjs-zod';
 
 @Controller('user')
 export class UserController {
   constructor(private readonly userService: UserService) {}
   
   @Get('me')
+  @ZodResponse({ type: UserResponseDto })
   async getMe(@User() user: JwtPayload) {
     let id = user?.id;
     if (!id) {
@@ -27,6 +29,7 @@ export class UserController {
   }
   
   @Put('update')
+  @ZodResponse({ type: UpdateUserResponseDto })
   async updateUser(
     @User() user: JwtPayload, 
     @Body() updateUserDto: UpdateUserDto
@@ -37,12 +40,10 @@ export class UserController {
     }
     
     const updatedUser = await this.userService.updateUser(id, updateUserDto);
-    return {
-      message: 'User updated successfully',
-      data: updatedUser
-    };
+    return updatedUser;
   }
   @Post('change-password')
+  @ZodResponse({ type: ChangePasswordResponseDto })
   async changePassword(
     @User() user: JwtPayload,
     @Body() dto: ChangePasswordDto

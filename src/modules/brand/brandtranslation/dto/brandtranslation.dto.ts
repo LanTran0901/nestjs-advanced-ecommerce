@@ -23,3 +23,30 @@ const UpdateBrandTranslationSchema = z.object({
 });
 
 export class UpdateBrandTranslationDto extends createZodDto(UpdateBrandTranslationSchema) {}
+
+// Response DTOs
+const BrandTranslationResponseSchema = z.object({
+  id: z.number(),
+  brandId: z.number(),
+  languageId: z.string(),
+  name: z.string(),
+  description: z.string(),
+  createdById: z.number().nullable(),
+  updatedById: z.number().nullable(),
+  deletedById: z.number().nullable(),
+  deletedAt: z.any().nullable(), // Accept any type to avoid transform issues
+  createdAt: z.any(),
+  updatedAt: z.any(),
+});
+
+export class BrandTranslationResponseDto extends createZodDto(BrandTranslationResponseSchema) {}
+
+const BrandTranslationListResponseSchema = z.array(BrandTranslationResponseSchema);
+
+export class BrandTranslationListResponseDto extends createZodDto(BrandTranslationListResponseSchema) {}
+
+const DeleteBrandTranslationResponseSchema = z.object({
+  message: z.string(),
+});
+
+export class DeleteBrandTranslationResponseDto extends createZodDto(DeleteBrandTranslationResponseSchema) {}

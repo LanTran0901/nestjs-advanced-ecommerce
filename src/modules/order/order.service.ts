@@ -1,20 +1,33 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+  Inject,
+} from '@nestjs/common';
 import { PrismaService } from 'src/db/prisma.service';
-import { CreateOrderDto, UpdateOrderDto, QueryOrderDto, OrderStatus } from './dto/order.dto';
+import {
+  CreateOrderDto,
+  UpdateOrderDto,
+  QueryOrderDto,
+  OrderStatus,
+} from './dto/order.dto';
 import { QueueService } from 'src/common/queue/queue.service';
+import Redlock from 'redlock';
 
 @Injectable()
 export class OrderService {
   // Payment configuration - you should move these to environment variables
-  private readonly PAYMENT_CONFIG = { 
+  private readonly PAYMENT_CONFIG = {
     bankAccount: '0010000000355',
     bankName: 'Vietcombank',
-    baseUrl: 'https://qr.sepay.vn/img'
+    baseUrl: 'https://qr.sepay.vn/img',
   };
 
   constructor(
     private prisma: PrismaService,
-    private queueService: QueueService
+    private queueService: QueueService,
+    @Inject('REDLOCK') private readonly redlock: Redlock,
   ) {}
 
   /**
@@ -22,7 +35,7 @@ export class OrderService {
    */
   private generateQRPaymentLink(amount: number, orderId: string) {
     const description = encodeURIComponent(`Thanh toan don hang ${orderId}`);
-    
+
     return `${this.PAYMENT_CONFIG.baseUrl}?acc=${this.PAYMENT_CONFIG.bankAccount}&bank=${this.PAYMENT_CONFIG.bankName}&amount=${amount}&des=${description}`;
   }
 
@@ -44,13 +57,7 @@ export class OrderService {
         },
         include: {
           sku: {
-            include: {
-              product: {
-                include: {
-                  productTranslations: true,
-                },
-              },
-            },
+            include: { product: { include: { productTranslations: true } } },
           },
         },
       });
@@ -60,11 +67,16 @@ export class OrderService {
       }
 
       if (allCartItems.length !== allCartItemIds.length) {
-        throw new BadRequestException('Some cart items are invalid or do not belong to you');
+        throw new BadRequestException(
+          'Some cart items are invalid or do not belong to you',
+        );
       }
-
+      const lock = await this.redlock.acquire(
+        allCartItems.map((item) => item.skuId),
+        3000,
+      );
       // Create a map for quick lookup
-      const cartItemMap = new Map(allCartItems.map(item => [item.id, item]));
+      const cartItemMap = new Map(allCartItems.map((item) => [item.id, item]));
 
       // 2. Create a single payment record for all orders (initially PENDING)
       const payment = await prisma.payment.create({
@@ -72,118 +84,133 @@ export class OrderService {
           status: 'PENDING',
         },
       });
+      this.prisma.$transaction(async (tx) => {
+        // 3. Process each order
+        for (const orderData of createOrderDto) {
+          // Get cart items for this specific order
+          const orderCartItems = orderData.items
+            .map((itemId) => cartItemMap.get(itemId))
+            .filter((item) => item != undefined);
 
-      // 3. Process each order
-      for (const orderData of createOrderDto) {
-        // Get cart items for this specific order
-        const orderCartItems = orderData.items
-          .map(itemId => cartItemMap.get(itemId))
-          .filter((item): item is NonNullable<typeof item> => item !== undefined);
-
-        if (orderCartItems.length === 0) {
-          throw new BadRequestException(`No valid cart items found for order with shop ${orderData.shopId}`);
-        }
-
-        // Validate stock availability and calculate total for this order
-        let totalAmount = 0;
-        
-        for (const cartItem of orderCartItems) {
-          if (!cartItem.sku || cartItem.sku.deletedAt) {
-            throw new NotFoundException(`SKU for cart item ${cartItem.id} not found or deleted`);
-          }
-
-          if (cartItem.sku.stock < cartItem.quantity) {
+          if (orderCartItems.length === 0) {
             throw new BadRequestException(
-              `Insufficient stock for ${cartItem.sku.product.name}. Available: ${cartItem.sku.stock}, Requested: ${cartItem.quantity}`
+              `No valid cart items found for order with shop ${orderData.shopId}`,
             );
           }
 
-          totalAmount += cartItem.sku.price * cartItem.quantity;
-        }
+          // Validate stock availability and calculate total for this order
+          let totalAmount = 0;
 
-        // 4. Create order with ProductSKUSnapshots (linked to the shared payment)
-        const order = await prisma.order.create({
-          data: {
-            userId: currentUserId,
-            status: orderData.status,
-            receiver: orderData.receiver,
-            shopId: orderData.shopId,
-            paymentId: payment.id, // Link to shared payment
-            createdById: currentUserId,
-            items: {
-              create: orderCartItems.map((cartItem) => ({
-                quantity: cartItem.quantity,
-                skuId: cartItem.sku.id,
-                productId: cartItem.sku.productId,
-                productName: cartItem.sku.product.name,
-                skuPrice: cartItem.sku.price,
-                skuValue: cartItem.sku.value,
-                image: cartItem.sku.image,
-                productTranslations: cartItem.sku.product.productTranslations
-              })),
+          for (const cartItem of orderCartItems) {
+            if (!cartItem?.sku || cartItem.sku.deletedAt) {
+              throw new NotFoundException(
+                `SKU for cart item ${cartItem?.id} not found or deleted`,
+              );
+            }
+
+            if (cartItem.sku.stock < cartItem.quantity) {
+              throw new BadRequestException(`Insufficient stock`);
+            }
+
+            totalAmount += cartItem.sku.price * cartItem.quantity;
+          }
+
+          // 4. Create order with ProductSKUSnapshots (linked to the shared payment)
+          const order = await prisma.order.create({
+            data: {
+              userId: currentUserId,
+              status: orderData.status,
+              receiver: orderData.receiver,
+              shopId: orderData.shopId,
+              paymentId: payment.id, // Link to shared payment
+              createdById: currentUserId,
+              items: {
+                create: orderCartItems.map((cartItem) => ({
+                  quantity: cartItem.quantity,
+                  skuId: cartItem.sku.id,
+                  productId: cartItem.sku.productId,
+                  productName: cartItem.sku.product.name,
+                  skuPrice: cartItem.sku.price,
+                  skuValue: cartItem.sku.value,
+                  image: cartItem.sku.image,
+                  productTranslations: cartItem.sku.product.productTranslations,
+                })),
+              },
+              totalPrice: totalAmount,
             },
-            totalPrice: totalAmount
-          },
-          include: {
-            items: true,
-            user: {
-              select: {
-                id: true,
-                email: true,
-                name: true,
-                phoneNumber: true,
+            include: {
+              items: true,
+              user: {
+                select: {
+                  id: true,
+                  email: true,
+                  name: true,
+                  phoneNumber: true,
+                },
+              },
+              payment: true,
+              shop: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                },
               },
             },
-            payment: true,
-            shop: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
-            },
-          },
-        });
+          });
 
-        // 5. Update inventory (reduce stock) for this order
-        await Promise.all(
-          orderCartItems.map((cartItem) =>
-            prisma.sKU.update({
-              where: { id: cartItem.skuId },
+          // 5. Update inventory (reduce stock) for this order
+
+          for (const cartItem of orderCartItems) {
+            const originalCartItem = allCartItems.find(
+              (item) => item.skuId === cartItem.skuId,
+            );
+
+            await prisma.sKU.update({
+              where: {
+                id: cartItem.skuId,
+                updatedAt: originalCartItem?.sku.updatedAt,
+              },
               data: {
                 stock: {
                   decrement: cartItem.quantity,
                 },
               },
-            })
-          )
-        );
+            });
+          }
 
-        // Add cancel order job for this order
-        await this.queueService.addCancelOrderJob({
-          orderId: order.id,
-          userId: currentUserId
+          // Add cancel order job for this order
+          await this.queueService.addCancelOrderJob({
+            orderId: order.id,
+            userId: currentUserId,
+          });
+
+          createdOrders.push({
+            ...order,
+            totalAmount,
+          });
+        }
+
+        // 6. Clear all user's cart items (after all orders are successfully created)
+        await this.prisma.cartItem.deleteMany({
+          where: {
+            id: { in: allCartItemIds },
+            userId: currentUserId,
+          },
         });
-
-        createdOrders.push({
-          ...order,
-          totalAmount,
-        });
-      }
-
-      // 6. Clear all user's cart items (after all orders are successfully created)
-      await prisma.cartItem.deleteMany({
-        where: {
-          id: { in: allCartItemIds },
-          userId: currentUserId,
-        },
       });
-
+      lock.release();
       // Calculate total payment amount for all orders
-      const totalPaymentAmount = createdOrders.reduce((sum, order) => sum + order.totalAmount, 0);
+      const totalPaymentAmount = createdOrders.reduce(
+        (sum, order) => sum + order.totalAmount,
+        0,
+      );
 
       // Generate QR payment link for the total amount
-      const qrPaymentLink = this.generateQRPaymentLink(totalPaymentAmount, payment.id.toString());
+      const qrPaymentLink = this.generateQRPaymentLink(
+        totalPaymentAmount,
+        payment.id.toString(),
+      );
 
       return {
         orders: createdOrders,
@@ -200,7 +227,7 @@ export class OrderService {
   }
 
   async findAll(queryOrderDto: QueryOrderDto, currentUserId: number) {
-    const { page, limit, status} = queryOrderDto;
+    const { page, limit, status } = queryOrderDto;
     const skip = (page - 1) * limit;
 
     // Build where condition for shop orders
@@ -214,7 +241,6 @@ export class OrderService {
       whereCondition.status = status;
     }
 
-  
     const [totalItems, orders] = await Promise.all([
       this.prisma.order.count({
         where: whereCondition,
@@ -473,12 +499,14 @@ export class OrderService {
 
     // Check if user has permission to view this order
     // Users can only view their own orders unless they are ADMIN or SELLER (shop owner)
-    const hasPermission = 
+    const hasPermission =
       order.userId === currentUserId || // Order owner
-      order.shopId === currentUserId;   // Shop owner
+      order.shopId === currentUserId; // Shop owner
 
     if (!hasPermission) {
-      throw new ForbiddenException('You do not have permission to view this order');
+      throw new ForbiddenException(
+        'You do not have permission to view this order',
+      );
     }
 
     return {
@@ -486,7 +514,6 @@ export class OrderService {
       message: 'Order retrieved successfully',
     };
   }
-
 
   async updateStatus(id: number, status: OrderStatus, currentUserId: number) {
     // First, find the order and check if it exists
@@ -511,14 +538,19 @@ export class OrderService {
     // Validate user permission to update order status
     // Only the shop owner can update order status
     if (order.shopId !== currentUserId) {
-      throw new ForbiddenException('Only the shop owner can update order status');
+      throw new ForbiddenException(
+        'Only the shop owner can update order status',
+      );
     }
 
     // Validate status transition rules
-    const isValidTransition = this.isValidStatusTransition(order.status, status);
+    const isValidTransition = this.isValidStatusTransition(
+      order.status,
+      status,
+    );
     if (!isValidTransition) {
       throw new BadRequestException(
-        `Invalid status transition from ${order.status} to ${status}`
+        `Invalid status transition from ${order.status} to ${status}`,
       );
     }
 
@@ -569,12 +601,23 @@ export class OrderService {
     };
   }
 
-  
-  private isValidStatusTransition(currentStatus: OrderStatus, newStatus: OrderStatus): boolean {
+  private isValidStatusTransition(
+    currentStatus: OrderStatus,
+    newStatus: OrderStatus,
+  ): boolean {
     const validTransitions: Record<OrderStatus, OrderStatus[]> = {
-      [OrderStatus.PENDING_PAYMENT]: [OrderStatus.PENDING_PICKUP, OrderStatus.CANCELLED],
-      [OrderStatus.PENDING_PICKUP]: [OrderStatus.PENDING_DELIVERY, OrderStatus.CANCELLED],
-      [OrderStatus.PENDING_DELIVERY]: [OrderStatus.DELIVERED, OrderStatus.RETURNED],
+      [OrderStatus.PENDING_PAYMENT]: [
+        OrderStatus.PENDING_PICKUP,
+        OrderStatus.CANCELLED,
+      ],
+      [OrderStatus.PENDING_PICKUP]: [
+        OrderStatus.PENDING_DELIVERY,
+        OrderStatus.CANCELLED,
+      ],
+      [OrderStatus.PENDING_DELIVERY]: [
+        OrderStatus.DELIVERED,
+        OrderStatus.RETURNED,
+      ],
       [OrderStatus.DELIVERED]: [OrderStatus.RETURNED],
       [OrderStatus.RETURNED]: [], // No further transitions allowed
       [OrderStatus.CANCELLED]: [], // No further transitions allowed
@@ -591,7 +634,7 @@ export class OrderService {
     // - Check if order can be deleted (business rules)
     // - Soft delete the order
     // - Update related entities if needed
-    
+
     throw new Error('Order deletion logic not implemented yet');
   }
 
@@ -642,12 +685,14 @@ export class OrderService {
 
       // Validate user permission to cancel order
       // Order can be cancelled by: order owner or shop owner
-      const canCancel = 
+      const canCancel =
         order.userId === currentUserId || // Order owner
-        order.shopId === currentUserId;   // Shop owner
+        order.shopId === currentUserId; // Shop owner
 
       if (!canCancel) {
-        throw new ForbiddenException('You do not have permission to cancel this order');
+        throw new ForbiddenException(
+          'You do not have permission to cancel this order',
+        );
       }
 
       // Check if order can be cancelled based on current status
@@ -658,7 +703,7 @@ export class OrderService {
 
       if (!cancellableStatuses.includes(order.status)) {
         throw new BadRequestException(
-          `Order cannot be cancelled. Current status: ${order.status}. Only orders with status PENDING_PAYMENT or PENDING_PICKUP can be cancelled.`
+          `Order cannot be cancelled. Current status: ${order.status}. Only orders with status PENDING_PAYMENT or PENDING_PICKUP can be cancelled.`,
         );
       }
 
@@ -716,7 +761,7 @@ export class OrderService {
               },
             });
           }
-        })
+        }),
       );
 
       // Update payment status to FAILED if it was PENDING
@@ -734,7 +779,10 @@ export class OrderService {
         message: 'Order cancelled successfully. Inventory has been restored.',
         details: {
           restoredItems: order.items.length,
-          refundStatus: order.payment.status === 'SUCCESS' ? 'REFUND_REQUIRED' : 'NO_REFUND_NEEDED',
+          refundStatus:
+            order.payment.status === 'SUCCESS'
+              ? 'REFUND_REQUIRED'
+              : 'NO_REFUND_NEEDED',
         },
       };
     });

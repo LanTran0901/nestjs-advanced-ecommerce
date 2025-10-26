@@ -15,8 +15,9 @@ import {
 import { BrandTranslationService } from './brandtranslation.service';
 import { ZodValidationPipe } from 'src/common/pipes/zod-custom.pipe';
 import { User } from 'src/common/decorator/user.decorator';
-import { CreateBrandTranslationDto, UpdateBrandTranslationDto } from './dto/brandtranslation.dto';
+
 import { type JwtPayload } from 'src/types';
+import { CreateBrandTranslationDto, UpdateBrandTranslationDto } from './dto/brandtranslation.dto';
 
 @Controller('brand-translation')
 export class BrandTranslationController {

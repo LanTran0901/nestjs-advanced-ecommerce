@@ -16,12 +16,12 @@ import {
 import { CategoryService } from './category.service';
 import { ZodValidationPipe } from 'src/common/pipes/zod-custom.pipe';
 import { User } from 'src/common/decorator/user.decorator';
-import { CreateCategoryDto, UpdateCategoryDto } from './dto/category.dto';
+import { CreateCategoryDto, UpdateCategoryDto, CategoryResponseDto, CategoryListResponseDto, DeleteCategoryResponseDto } from './dto/category.dto';
 import { type JwtPayload } from 'src/types';
-import { Public } from 'src/common/decorator/public.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { configMulter } from 'src/utils/upload';
 import { type Request } from 'express';
+import { ZodResponse } from 'nestjs-zod';
 
 @Controller('category')
 export class CategoryController {
@@ -29,6 +29,7 @@ export class CategoryController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @ZodResponse({ type: CategoryResponseDto })
   @UseInterceptors(FileInterceptor('file', configMulter))
   async create(
     @Body(ZodValidationPipe) createCategoryDto: CreateCategoryDto,
@@ -36,13 +37,11 @@ export class CategoryController {
     @Req() req: Request
   ) {
     const category = await this.categoryService.create({...createCategoryDto, logoFile: req.file}, user.id);
-    return {
-      message: 'Category created successfully',
-      data: category
-    };
+    return category;
   }
 
   @Get()
+  @ZodResponse({ type: CategoryListResponseDto })
   async findAll(
     @Query('includeDeleted') includeDeleted?: string,
     @Query('parentId') parentId?: string,
@@ -79,10 +78,7 @@ export class CategoryController {
     }
 
     const result = await this.categoryService.findAll(query);
-    return {
-      message: 'Categories retrieved successfully',
-      ...result
-    };
+    return result.data;
   }
 
   @Get('tree')
@@ -95,12 +91,10 @@ export class CategoryController {
   }
 
   @Get(':id')
+  @ZodResponse({ type: CategoryResponseDto })
   async findOne(@Param('id', ParseIntPipe) id: number) {
     const category = await this.categoryService.findOne(id);
-    return {
-      message: 'Category retrieved successfully',
-      data: category
-    };
+    return category;
   }
 
   @Patch(':id')
@@ -116,31 +110,30 @@ export class CategoryController {
       logoFile: req.file
     };
     const category = await this.categoryService.update(id, categoryData, user.id);
-    return {
-      message: 'Category updated successfully',
-      data: category
-    };
+    return category;
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ZodResponse({ type: DeleteCategoryResponseDto })
   async remove(@Param('id', ParseIntPipe) id: number, @User() user: JwtPayload) {
-    return this.categoryService.remove(id, user.id);
+    await this.categoryService.remove(id, user.id);
+    return { message: 'Category deleted successfully' };
   }
 
   @Delete(':id/permanent')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ZodResponse({ type: DeleteCategoryResponseDto })
   async permanentDelete(@Param('id', ParseIntPipe) id: number) {
-    return this.categoryService.permanentDelete(id);
+    await this.categoryService.permanentDelete(id);
+    return { message: 'Category permanently deleted successfully' };
   }
 
   @Post(':id/restore')
+  @ZodResponse({ type: CategoryResponseDto })
   async restore(@Param('id', ParseIntPipe) id: number, @User() user: JwtPayload) {
     const category = await this.categoryService.restore(id, user.id);
-    return {
-      message: 'Category restored successfully',
-      data: category
-    };
+    return category;
   }
 
   @Get('parents')

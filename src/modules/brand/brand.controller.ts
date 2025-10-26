@@ -17,11 +17,12 @@ import {
 import { BrandService } from './brand.service';
 import { ZodValidationPipe } from 'src/common/pipes/zod-custom.pipe';
 import { User } from 'src/common/decorator/user.decorator';
-import { CreateBrandDto, UpdateBrandDto, CreateBrandTranslationDto, UpdateBrandTranslationDto } from './dto/brand.dto';
+import { CreateBrandDto, UpdateBrandDto, BrandResponseDto, BrandListResponseDto, DeleteBrandResponseDto } from './dto/brand.dto';
 import { type JwtPayload } from 'src/types';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { configMulter } from 'src/utils/upload';
 import { type Request } from 'express';
+import { ZodResponse } from 'nestjs-zod';
 
 @Controller('brand')
 export class BrandController {
@@ -29,6 +30,7 @@ export class BrandController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @ZodResponse({ type: BrandResponseDto })
   @UseInterceptors(FileInterceptor('file', configMulter))
   async create(
     @Body(ZodValidationPipe) createBrandDto: CreateBrandDto,
@@ -36,13 +38,11 @@ export class BrandController {
     @Req() req: Request
   ) {
     const brand = await this.brandService.create({...createBrandDto,logoFile: req.file}, user.id);
-    return {
-      message: 'Brand created successfully',
-      data: brand
-    };
+    return brand;
   }
 
   @Get()
+  @ZodResponse({ type: BrandListResponseDto })
   async findAll(
     @Query('includeDeleted') includeDeleted?: string,
     @Query('search') search?: string,
@@ -73,20 +73,15 @@ export class BrandController {
     }
 
     const result = await this.brandService.findAll(query);
-    return {
-      message: 'Brands retrieved successfully',
-      data: result.data,
-      pagination: result.pagination
-    };
+    // Return the data array directly to match Zod response DTO
+    return result.data;
   }
 
   @Get(':id')
+  @ZodResponse({ type: BrandResponseDto })
   async findOne(@Param('id', ParseIntPipe) id: number) {
     const brand = await this.brandService.findOne(id);
-    return {
-      message: 'Brand retrieved successfully',
-      data: brand
-    };
+    return brand;
   }
 
   @Patch(':id')
@@ -102,86 +97,27 @@ export class BrandController {
       logoFile: req.file
     };
     const brand = await this.brandService.update(id, brandData, user.id);
-    return {
-      message: 'Brand updated successfully',
-      data: brand
-    };
+    return brand;
   }
 
   @Delete(':id')
+  @ZodResponse({ type: DeleteBrandResponseDto })
   async remove(
     @Param('id', ParseIntPipe) id: number,
     @User() user: JwtPayload
   ) {
     const brand = await this.brandService.remove(id, user.id);
-    return {
-      message: 'Brand deleted successfully',
-      data: brand
-    };
+    return { message: 'Brand deleted successfully' };
   }
 
   @Put(':id/restore')
+  @ZodResponse({ type: BrandResponseDto })
   async restore(
     @Param('id', ParseIntPipe) id: number,
     @User() user: JwtPayload
   ) {
     const brand = await this.brandService.restore(id, user.id);
-    return {
-      message: 'Brand restored successfully',
-      data: brand
-    };
+    return brand;
   }
 
-  // Brand Translation endpoints
-  @Post(':id/translations')
-  @HttpCode(HttpStatus.CREATED)
-  async createTranslation(
-    @Param('id', ParseIntPipe) brandId: number,
-    @Body(ZodValidationPipe) createBrandTranslationDto: CreateBrandTranslationDto,
-    @User() user: JwtPayload
-  ) {
-    // Override brandId from param to ensure consistency
-    const translationDto = { ...createBrandTranslationDto, brandId };
-    const translation = await this.brandService.createTranslation(translationDto, user.id);
-    return {
-      message: 'Brand translation created successfully',
-      data: translation
-    };
-  }
-
-  @Get(':id/translations')
-  async findTranslations(@Param('id', ParseIntPipe) brandId: number) {
-    const translations = await this.brandService.findTranslations(brandId);
-    return {
-      message: 'Brand translations retrieved successfully',
-      data: translations
-    };
-  }
-
-  @Patch(':id/translations/:languageId')
-  async updateTranslation(
-    @Param('id', ParseIntPipe) brandId: number,
-    @Param('languageId') languageId: string,
-    @Body(ZodValidationPipe) updateBrandTranslationDto: UpdateBrandTranslationDto,
-    @User() user: JwtPayload
-  ) {
-    const translation = await this.brandService.updateTranslation(brandId, languageId, updateBrandTranslationDto, user.id);
-    return {
-      message: 'Brand translation updated successfully',
-      data: translation
-    };
-  }
-
-  @Delete(':id/translations/:languageId')
-  async removeTranslation(
-    @Param('id', ParseIntPipe) brandId: number,
-    @Param('languageId') languageId: string,
-    @User() user: JwtPayload
-  ) {
-    const translation = await this.brandService.removeTranslation(brandId, languageId, user.id);
-    return {
-      message: 'Brand translation deleted successfully',
-      data: translation
-    };
-  }
 }

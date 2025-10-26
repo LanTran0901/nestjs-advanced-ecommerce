@@ -1,98 +1,199 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# 🛍️ Advanced E-Commerce REST API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+A production-ready, enterprise-grade e-commerce REST API built with NestJS, PostgreSQL, Prisma, and Docker. This project showcases advanced backend development patterns and best practices for building scalable e-commerce platforms.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## ✨ Features
 
-## Description
+### 🔐 Authentication & Security
+- **JWT-based Authentication** with access and refresh tokens
+- **Two-Factor Authentication (2FA)** using TOTP (Time-based One-Time Password)
+- **Google OAuth Integration** for social login
+- **Role-Based Access Control (RBAC)** with granular permissions
+- Session management with Redis
+- Secure password hashing with bcrypt
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+### 🛒 E-Commerce Core Features
+- **Product Management** with multi-language support
+  - Product SKU (Stock Keeping Unit) system
+  - Product variants and attributes
+  - Product reviews and ratings
+  - Category and brand management
+- **Shopping Cart System** with real-time updates
+- **Order Management** with comprehensive order lifecycle
+- **Multi-language Support** for internationalization
+- **Brand Management** with translations
 
-## Project setup
+### 💳 Payment Integration
+- **SePay Payment Gateway** integration
+- Secure payment processing
+- Order payment tracking and status management
+
+### ⚡ Advanced Features
+- **Redlock Distributed Locking** for handling concurrent orders and preventing race conditions
+- **BullMQ Job Queue** for background task processing
+- **AWS S3 Integration** for file storage and management
+- **AWS SES Integration** for email notifications
+- **Redis Caching** for improved performance
+- **Real-time Updates** with WebSocket support
+- **Swagger API Documentation** for easy API exploration
+
+### 🏗️ Architecture & Best Practices
+- Clean architecture with modular design
+- DTOs with Zod validation
+- Custom decorators and guards
+- Global exception filters
+- Response interceptors for consistent API responses
+- Soft delete support across entities
+- Audit trail (createdBy, updatedBy, deletedBy)
+
+## 🛠️ Tech Stack
+
+- **Framework:** NestJS 11.x
+- **Language:** TypeScript
+- **Database:** PostgreSQL 16
+- **ORM:** Prisma 6.x
+- **Caching:** Redis (ioredis)
+- **Queue:** BullMQ
+- **Authentication:** JWT, Speakeasy (2FA), Passport
+- **File Storage:** AWS S3
+- **Email Service:** AWS SES
+- **API Documentation:** Swagger (OpenAPI)
+- **Validation:** Zod
+- **Containerization:** Docker & Docker Compose
+- **Payment Gateway:** SePay
+
+## 📋 Prerequisites
+
+- Node.js 18+ and npm
+- Docker and Docker Compose
+- PostgreSQL 16 (if running without Docker)
+- Redis (if running without Docker)
+- AWS Account (for S3 and SES)
+
+## 🚀 Quick Start
+
+### 1. Clone the Repository
 
 ```bash
-$ npm install
+git clone <repository-url>
+cd Ecommerce
 ```
 
-## Compile and run the project
+### 2. Environment Variables
+
+Create a `.env` file in the root directory:
+
+```env
+# Database
+DATABASE_URL="your_db_url"
+
+# Server
+PORT=5000
+
+# JWT
+JWT_SECRET=your_jwt_secret_here
+
+# Admin Setup
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=your_secure_password
+
+# AWS Configuration
+AWS_ACCESS_KEY_ID=your_aws_access_key
+AWS_SECRET_ACCESS_KEY=your_aws_secret_key
+AWS_REGION=ap-southeast-1
+AWS_S3_BUCKET=your_bucket_name
+AWS_SES_SENDER_EMAIL=your_email@example.com
+
+# Google OAuth
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+GOOGLE_REDIRECT_URI=http://localhost:5000/auth/google/callback
+
+# Redis
+REDIS_HOST=localhost
+REDIS_PORT=6379
+```
+
+### 3. Installation
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npm install
 ```
 
-## Run tests
+### 4. Database Setup
 
 ```bash
-# unit tests
-$ npm run test
+# Generate Prisma Client
+npx prisma generate
 
-# e2e tests
-$ npm run test:e2e
+# Push database schema
+npx prisma db push
 
-# test coverage
-$ npm run test:cov
+# Seed database with initial data
+npm run seed
+
+# Setup permissions
+npm run permission
 ```
 
-## Deployment
+### 5. Run the Application
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+#### Development Mode
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+npm run start:dev
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+#### Production Mode
 
-## Resources
+```bash
+npm run build
+npm run start:prod
+```
 
-Check out a few resources that may come in handy when working with NestJS:
+#### Using Docker Compose
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+```bash
+docker-compose up --build
+```
 
-## Support
+The API will be available at `http://localhost:5000`
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+## 📚 API Documentation
 
-## Stay in touch
+Once the application is running, access the Swagger documentation at:
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+```
+http://localhost:5000/api
+```
 
-## License
+## 🗂️ Project Structure
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+```
+src/
+├── common/                 # Shared utilities and helpers
+│   ├── decorator/         # Custom decorators (@Public, @User)
+│   ├── filter/            # Exception filters
+│   ├── interceptors/      # Response interceptors
+│   ├── pipes/             # Custom validation pipes
+│   ├── queue/             # BullMQ queue configuration
+│   └── services/          # Shared services (Role, S3, SES)
+├── db/                    # Database services
+│   ├── prisma.service.ts
+│   └── redis.service.ts
+├── modules/               # Feature modules
+│   ├── auth/             # Authentication & Authorization
+│   ├── brand/            # Brand management
+│   ├── cart/             # Shopping cart
+│   ├── category/         # Category management
+│   ├── language/         # Multi-language support
+│   ├── order/            # Order management
+│   ├── payment/          # Payment processing
+│   ├── permission/       # Permission management
+│   ├── product/          # Product management
+│   ├── redlock/          # Distributed locking
+│   ├── role/             # Role management
+│   └── user/             # User management
+├── types/                # TypeScript type definitions
+└── utils/                # Utility functions
+```

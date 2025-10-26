@@ -12,15 +12,35 @@ import { ProductModule } from '../product/product.module';
 import { CartModule } from '../cart/cart.module';
 import { OrderModule } from '../order/order.module';
 import { PaymentModule } from '../payment/payment.module';
-import { APP_PIPE } from '@nestjs/core';
+import { APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { ZodValidationPipe } from 'src/common/pipes/zod-custom.pipe';
+import { ZodSerializerInterceptor } from 'nestjs-zod';
 
 @Module({
-  imports: [authModule, UserModule, LanguageModule, PermissionModule, CategoryModule, RoleModule, BrandModule, ProductModule, CartModule, OrderModule, PaymentModule],
+  imports: [
+    authModule,
+    UserModule,
+    LanguageModule,
+    PermissionModule,
+    CategoryModule,
+    RoleModule,
+    BrandModule,
+    ProductModule,
+    CartModule,
+    OrderModule,
+    PaymentModule,
+  ],
   controllers: [AppController],
-  providers: [AppService,{
+  providers: [
+    AppService,
+    {
       provide: APP_PIPE,
       useClass: ZodValidationPipe,
-    },],
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: ZodSerializerInterceptor,
+    },
+  ],
 })
 export class AppModule {}

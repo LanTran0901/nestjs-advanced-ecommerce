@@ -6,6 +6,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import { PrismaService } from './db/prisma.service';
 import { ResponseFormatInterceptor } from './common/interceptors/response.interceptor';
+import { cleanupOpenApiDoc } from 'nestjs-zod';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -47,7 +48,8 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, document);
+  const cleaned = cleanupOpenApiDoc(document);
+  SwaggerModule.setup('api', app, cleaned);
   
   await app.listen(process.env.PORT ?? 5000, '0.0.0.0');
   

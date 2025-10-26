@@ -32,3 +32,45 @@ const ChangePasswordSchema = z.object({
 });
 
 export class ChangePasswordDto extends createZodDto(ChangePasswordSchema) {}
+
+// Response DTOs
+const UserResponseSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  email: z.string(),
+  phoneNumber: z.string().nullable(),
+  avatar: z.string().nullable(),
+  roleId: z.number(),
+  createdAt: z.any(),
+  updatedAt: z.any(),
+  role: z.object({
+    name: z.string(),
+    permissions: z.array(z.object({
+      method: z.string(),
+      module: z.string(),
+      path: z.string(),
+    })).optional(),
+  }).optional(),
+});
+
+export class UserResponseDto extends createZodDto(UserResponseSchema) {}
+
+const UpdateUserResponseSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  email: z.string(),
+  phoneNumber: z.string().nullable(),
+  avatar: z.string().nullable(),
+  updatedAt: z.any(),
+  role: z.object({
+    name: z.string(),
+  }).optional(),
+});
+
+export class UpdateUserResponseDto extends createZodDto(UpdateUserResponseSchema) {}
+
+const ChangePasswordResponseSchema = z.object({
+  message: z.string(),
+});
+
+export class ChangePasswordResponseDto extends createZodDto(ChangePasswordResponseSchema) {}
